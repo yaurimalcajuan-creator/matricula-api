@@ -1,28 +1,32 @@
-Feature: : Matricula de cursos
+# language: es
+@T1 @P1
+Característica: Matrícula del alumno
   Como alumno de CIBERTEC
-  Quiero matricularme en mis cursos
-  Para llevarlos en el ciclo
+  Quiero cotizar, registrar y pagar mi matrícula
+  Para verificar el flujo completo y las reglas de negocio
 
-  Scenario: Matricula valida con descuento por promedio y anulacion
-    Given  que Ana consulta la API de matricula
-    When se matricula con el codigo "i202610001" en el curso "PS3511"
-    Then el codigo de respuesta es 201
-    And el monto de la matricula es 288,0
-    And el estado de la matricula es "REGISTRADA"
-    When anula es matricula
-    Then el codigo de respuesta es 200
-    And el estado de la matricula es "ANULADA"
+  Antecedentes:
+    Dado que el alumno "i202610001" inicia sesión con clave "Cibertec2026"
 
-  Scenario Outline: Matricula rechazada por <motivo>
-    Given  que Ana consulta la API de matricula
-    When se matricula por codigo "<alumno>" en el curso "<curso>"
-    Then el codigo de respuesta es <status>
-    And el codigo de error es "<codigo>"
-    Examples:
-      | motivo             | alumno     | curso  | status | codigo               |
-      | deuda              | i202610004 | PS5511 | 422    | ALUMNO_CON_DEUDA     |
-      | duplicada          | i202610003 | IA5513 | 409    | MATRICULA_DUPLICADA  |
-      | falta de vacantes  | i202610001 | IA5513 | 409    | SIN_VACANTES         |
-      | cruce de horario   | i202610002 | QA5517 | 409    | CRUCE_HORARIO        |
-      | límite de créditos | i202610005 | TS5514 | 422    | LIMITE_CREDITOS      |
-      | alumno inexistente | i999999999 | PS5511 | 404    | ALUMNO_NO_ENCONTRADO |
+  Escenario: Cotizar el curso de mi fila
+    Cuando cotiza el curso "QA5517" para el alumno "i202610001"
+    Entonces la respuesta HTTP debe ser 200
+    Y la cotización muestra 3 créditos, subtotal 360,0, descuento 20 y total 288,0
+
+  Escenario: Matricularse y pagar el curso de mi fila
+    Cuando el alumno "i202610001" registra su matrícula en el curso "QA5517"
+    Entonces la respuesta HTTP debe ser 201
+    Y la matrícula creada tiene estado "REGISTRADA" y monto 288,0
+    Y el cuerpo de la respuesta cumple el esquema "schemas/matricula.json"
+    Cuando paga la matrícula registrada usando el método "TARJETA"
+    Entonces la respuesta HTTP debe ser 200
+    Y la matrícula pagada tiene estado "PAGADA" y fecha de pago registrada
+    Cuando consulta el listado de sus pagos
+    Entonces la respuesta HTTP debe ser 200
+    Y existe el pago de la matrícula con método "TARJETA" y formato de operación "^OP-[0-9]{6}$"
+
+  Escenario: Regla de negocio que debe fallar por cruce de horario
+    Cuando el alumno "i202610001" registra su matrícula en el curso "PS5511"
+    Entonces la respuesta HTTP debe ser 409
+    Y el error devuelto tiene código "CRUCE_HORARIO"
+    Y el cuerpo de la respuesta cumple el esquema "schemas/error.json"
